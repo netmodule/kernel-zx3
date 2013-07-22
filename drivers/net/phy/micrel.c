@@ -48,6 +48,8 @@
 #define KS8737_CTRL_INT_ACTIVE_HIGH		(1 << 14)
 #define KSZ8051_RMII_50MHZ_CLK			(1 << 7)
 
+#define NETMODULE_ZX3  /* some specific board init */
+
 static int kszphy_ack_interrupt(struct phy_device *phydev)
 {
 	/* bit[7..0] int status, which is a read and clear register. */
@@ -102,10 +104,70 @@ static int ks8737_config_intr(struct phy_device *phydev)
 	return rc < 0 ? rc : 0;
 }
 
-static int kszphy_config_init(struct phy_device *phydev)
+/*
+ * On the Enclustra ZX3 module,  each FPGA reset leads
+ * to a PHY reset too. So let's do the setup again
+ * @@ netmodule, da
+ */
+static int zx3_config_init(struct phy_device *phydev)
 {
+	int err;
+
+	if (((phydev->phy_id & ~PHY_ID_KSZ9031) & phydev->drv->phy_id_mask) == 0) {
+
+		err = phy_write(phydev, 0xD, 0x0002);
+		if (err < 0)
+			return err;
+
+		err = phy_write(phydev, 0xE, 0x0008); /* Reg 0x8 */
+		if (err < 0)
+			return err;
+
+		err = phy_write(phydev, 0xD, 0x4002);
+		if (err < 0)
+			return err;
+
+		err = phy_write(phydev, 0xE, 0x03FF); /* 3FF = max RXC and TXC delay */
+		if (err < 0)
+			return err;
+	}
+
+	else if (((phydev->phy_id & ~PHY_ID_KSZ9021) & phydev->drv->phy_id_mask) == 0) {
+
+		err = phy_write(phydev, 0xB, 0x8104); /* RGMII clock and control pad skew (reg 260) */
+		if (err < 0)
+			return err;
+
+		err = phy_write(phydev, 0xC, 0xF0F0);
+		if (err < 0)
+			return err;
+
+		err = phy_write(phydev, 0xB, 0x8105); /* RGMII RX pad skew (reg 261)*/
+		if (err < 0)
+			return err;
+
+		err = phy_write(phydev, 0xC, 0x0);
+		if (err < 0)
+			return err;
+	}
+	else {
+		printk (KERN_ERR "ZX3 unsupported PHY ID\n");
+	}
+
 	return 0;
 }
+
+
+static int kszphy_config_init(struct phy_device *phydev)
+{
+#ifdef NETMODULE_ZX3
+	return zx3_config_init (phydev);
+#else
+	return 0;
+#endif
+}
+
+
 
 static int ksz8021_config_init(struct phy_device *phydev)
 {
@@ -237,7 +299,19 @@ static struct phy_driver ksphy_driver[] = {
 	.ack_interrupt	= kszphy_ack_interrupt,
 	.config_intr	= ksz9021_config_intr,
 	.driver		= { .owner = THIS_MODULE, },
-}, {
+},{
+	.phy_id		= PHY_ID_KSZ9031,
+	.phy_id_mask	= 0x000ffffe,
+	.name		= "Micrel KSZ9031 Gigabit PHY",
+	.features	= PHY_GBIT_FEATURES, /* @NetModule, da, PAUSE disabled, else Gbit not working */
+	.flags		= PHY_HAS_MAGICANEG | PHY_HAS_INTERRUPT,
+	.config_init	= kszphy_config_init,
+	.config_aneg	= genphy_config_aneg,
+	.read_status	= genphy_read_status,
+	.ack_interrupt	= kszphy_ack_interrupt,
+	.config_intr	= ksz9021_config_intr,
+	.driver		= { .owner = THIS_MODULE, },
+},{
 	.phy_id		= PHY_ID_KSZ8873MLL,
 	.phy_id_mask	= 0x00fffff0,
 	.name		= "Micrel KSZ8873MLL Switch",
@@ -269,6 +343,7 @@ MODULE_AUTHOR("David J. Choi");
 MODULE_LICENSE("GPL");
 
 static struct mdio_device_id __maybe_unused micrel_tbl[] = {
+	{ PHY_ID_KSZ9031, 0x000ffffe },
 	{ PHY_ID_KSZ9021, 0x000ffffe },
 	{ PHY_ID_KSZ8001, 0x00ffffff },
 	{ PHY_ID_KS8737, 0x00fffff0 },
