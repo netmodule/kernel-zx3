@@ -246,11 +246,14 @@
 				compatible = "xlnx,ps7-nand-1.00.a";
 				reg = <0xe1000000 0x1000000>;
 				xlnx,nand-width = <8>;
-				/* timings in smc cycles count */
-				xlnx,nand-cycle-t0 = <3>; /* tRC */
-				xlnx,nand-cycle-t1 = <3>; /* tWC */
+				/* timings in smc cycles count 
+				   Timings will be set by FSBL, linux should not change them.
+				   Look out for DONT_TOUCH_SMC_NAND_TIMING_WIDTH in zynq-smc.c.
+				*/
+				xlnx,nand-cycle-t0 = <4>; /* tRC */
+				xlnx,nand-cycle-t1 = <4>; /* tWC */
 				xlnx,nand-cycle-t2 = <1>; /* tREA */
-				xlnx,nand-cycle-t3 = <2>; /* tWP */
+				xlnx,nand-cycle-t3 = <3>; /* tWP */
 				xlnx,nand-cycle-t4 = <2>; /* tCLR */
 				xlnx,nand-cycle-t5 = <2>; /* tAR */
 				xlnx,nand-cycle-t6 = <3>; /* tRR */
