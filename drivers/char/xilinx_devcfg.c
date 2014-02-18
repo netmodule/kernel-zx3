@@ -56,6 +56,7 @@ static DEFINE_MUTEX(xdevcfg_mutex);
 #define XDCFG_DMA_SRC_LEN_OFFSET	0x20 /* DMA Source Transfer Length */
 #define XDCFG_DMA_DEST_LEN_OFFSET	0x24 /* DMA Destination Transfer */
 #define XDCFG_UNLOCK_OFFSET		0x34 /* Unlock Register */
+#define XDCFG_MCTRL_OFFSET		0x80 /* Miscellaneous Control Reg */
 
 /* Control Register Bit definitions */
 #define XDCFG_CTRL_PCFG_PROG_B_MASK	0x40000000 /* Program signal to
@@ -92,6 +93,10 @@ static DEFINE_MUTEX(xdevcfg_mutex);
 #define XDCFG_IXR_PCFG_DONE_MASK	0x00000004 /* FPGA programmed */
 #define XDCFG_IXR_ERROR_FLAGS_MASK	0x00F0F860
 #define XDCFG_IXR_ALL_MASK		0xF8F7F87F
+
+/* Miscellaneous control Register bit definitions */
+#define XDCFG_MCTRL_INT_PCAP_LPBK	0x00000010	/* Internal pcap loopback */
+
 /* Miscellaneous constant values */
 #define XDCFG_DMA_INVALID_ADDRESS	0xFFFFFFFF  /* Invalid DMA address */
 
@@ -1520,6 +1525,7 @@ static int xdevcfg_drv_probe(struct platform_device *pdev)
 	dev_t devt;
 	int retval;
 	u32 ctrlreg;
+	u32 mctrl;
 	struct device_node *np;
 	const void *prop;
 	int size;
@@ -1639,6 +1645,10 @@ static int xdevcfg_drv_probe(struct platform_device *pdev)
 				XDCFG_CTRL_USER_MODE_MASK |
 				ctrlreg));
 
+	/* Make sure the loopback bit is not set in the miscellaneous control register*/
+	mctrl = xdevcfg_readreg(drvdata->base_address + XDCFG_MCTRL_OFFSET);
+	mctrl &= ~XDCFG_MCTRL_INT_PCAP_LPBK;
+	xdevcfg_writereg(drvdata->base_address + XDCFG_MCTRL_OFFSET, mctrl);
 
 	cdev_init(&drvdata->cdev, &xdevcfg_fops);
 	drvdata->cdev.owner = THIS_MODULE;
