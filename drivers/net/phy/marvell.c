@@ -414,11 +414,28 @@ static int m88e1116r_config_init(struct phy_device *phydev)
 	if (err < 0)
 		return err;
 	temp = phy_read(phydev, MII_M1116R_CONTROL_REG_MAC);
-	temp |= (1 << 5);
+	temp &= ~(1 << 5);  /* @@ NetModule, da, set correct mode for ZE7000 board */
 	temp |= (1 << 4);
 	err = phy_write(phydev, MII_M1116R_CONTROL_REG_MAC, temp);
 	if (err < 0)
 		return err;
+
+	/* @@ NetModule, da, LED settings */
+	err = phy_write(phydev, MII_MARVELL_PHY_PAGE, 3);
+	if (err < 0)
+		return err;
+
+	temp = 0x1040;
+	err = phy_write(phydev, 16, temp);
+	if (err < 0)
+		return err;
+
+	temp = 0x4405;
+	err = phy_write(phydev, 17, temp);
+	if (err < 0)
+		return err;
+
+
 	err = phy_write(phydev, MII_MARVELL_PHY_PAGE, 0);
 	if (err < 0)
 		return err;
