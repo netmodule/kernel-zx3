@@ -27,6 +27,8 @@
 #include <linux/micrel_phy.h>
 #include <linux/of.h>
 
+#define NETMODULE_ZX3  /* some specific board init */
+
 /* Operation Mode Strap Override */
 #define MII_KSZPHY_OMSO				0x16
 #define KSZPHY_OMSO_B_CAST_OFF			(1 << 9)
@@ -148,9 +150,48 @@ static int ks8737_config_intr(struct phy_device *phydev)
 	return rc < 0 ? rc : 0;
 }
 
+/*
+ * On the Enclustra ZX3 module,  each FPGA reset leads
+ * to a PHY reset too. So let's do the setup again
+ * @@ netmodule, da
+ */
+static int zx3_config_init(struct phy_device *phydev)
+{
+	int err;
+
+	if (((phydev->phy_id & ~PHY_ID_KSZ9031) & phydev->drv->phy_id_mask) == 0) {
+
+		err = phy_write(phydev, 0xD, 0x0002);
+		if (err < 0)
+			return err;
+
+		err = phy_write(phydev, 0xE, 0x0008); /* Reg 0x8 */
+		if (err < 0)
+			return err;
+
+		err = phy_write(phydev, 0xD, 0x4002);
+		if (err < 0)
+			return err;
+
+		err = phy_write(phydev, 0xE, 0x03FF); /* 3FF = max RXC and TXC delay */
+		if (err < 0)
+			return err;
+	}
+
+	else {
+		printk (KERN_ERR "ZX3 unsupported PHY ID\n");
+	}
+
+	return 0;
+}
+
 static int kszphy_config_init(struct phy_device *phydev)
 {
+#ifdef NETMODULE_ZX3
+	return zx3_config_init (phydev);
+#else
 	return 0;
+#endif
 }
 
 static int ksz8021_config_init(struct phy_device *phydev)
