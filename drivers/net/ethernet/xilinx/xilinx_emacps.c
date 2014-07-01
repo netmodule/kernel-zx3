@@ -281,6 +281,7 @@ MDC_DIV_64, MDC_DIV_96, MDC_DIV_128, MDC_DIV_224 };
 #define XEMACPS_NWCFG_1000_MASK		0x00000400 /* Gigbit mode */
 #define XEMACPS_NWCFG_EXTADDRMATCHEN_MASK	0x00000200
 /* External address match enable */
+#define XEMACPS_NWCFG_1536RXEN		0x00000100 /* Receive 1536 Byte frames */
 #define XEMACPS_NWCFG_UCASTHASHEN_MASK	0x00000080 /* Receive unicast hash
 						frames */
 #define XEMACPS_NWCFG_MCASTHASHEN_MASK	0x00000040 /* Receive multicast hash
@@ -1819,6 +1820,7 @@ static void xemacps_init_hw(struct net_local *lp)
 	regval |= XEMACPS_NWCFG_PAUSEEN_MASK;
 	regval |= XEMACPS_NWCFG_100_MASK;
 	regval |= XEMACPS_NWCFG_HDRXEN_MASK;
+	regval |= XEMACPS_NWCFG_1536RXEN;
 
 	regval |= (MDC_DIV_224 << XEMACPS_NWCFG_MDC_SHIFT_MASK);
 	if (lp->ndev->flags & IFF_PROMISC)	/* copy all */
