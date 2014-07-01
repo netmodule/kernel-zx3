@@ -990,8 +990,19 @@ void sdhci_send_command(struct sdhci_host *host, struct mmc_command *cmd)
 	int flags;
 	u32 mask;
 	unsigned long timeout;
+	u8 ctrl;
 
 	WARN_ON(host->cmd);
+
+	/* Make sure that the card detect logic of the controller is disabled.
+		This is necessary, because there seems to be a bug in the hardware
+		which causes the controller to report a card removed event and
+		automatically disable power and clock of the card during a data
+		transfer.
+	*/
+	ctrl = sdhci_readb(host, SDHCI_HOST_CONTROL);
+	ctrl |= 0xc0;
+	sdhci_writeb(host, ctrl, SDHCI_HOST_CONTROL);
 
 	/* Wait max 10 ms */
 	timeout = 10;
@@ -1648,24 +1659,11 @@ static int sdhci_get_cd(struct mmc_host *mmc)
 
 static int sdhci_check_ro(struct sdhci_host *host)
 {
-	unsigned long flags;
-	int is_readonly;
+	/*
+	Write protect is not supported, so allways return false.
+	*/
 
-	spin_lock_irqsave(&host->lock, flags);
-
-	if (host->flags & SDHCI_DEVICE_DEAD)
-		is_readonly = 0;
-	else if (host->ops->get_ro)
-		is_readonly = host->ops->get_ro(host);
-	else
-		is_readonly = !(sdhci_readl(host, SDHCI_PRESENT_STATE)
-				& SDHCI_WRITE_PROTECT);
-
-	spin_unlock_irqrestore(&host->lock, flags);
-
-	/* This quirk needs to be replaced by a callback-function later */
-	return host->quirks & SDHCI_QUIRK_INVERTED_WRITE_PROTECT ?
-		!is_readonly : is_readonly;
+	return 0;
 }
 
 #define SAMPLE_COUNT	5
