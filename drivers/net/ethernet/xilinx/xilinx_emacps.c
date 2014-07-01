@@ -2482,7 +2482,7 @@ static void xemacps_set_rx_mode(struct net_device *ndev)
 static int xemacps_change_mtu(struct net_device *ndev, int new_mtu)
 {
 	if ((new_mtu < MIN_MTU) ||
-		((new_mtu + ndev->hard_header_len) > MAX_MTU))
+		(new_mtu > MAX_MTU))
 		return -EINVAL;
 
 	ndev->mtu = new_mtu;	/* change mtu in net_device structure */
