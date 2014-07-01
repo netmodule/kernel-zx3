@@ -47,6 +47,7 @@
 #include <linux/ptp_clock_kernel.h>
 
 /************************** Constant Definitions *****************************/
+#define MAKE_PHY_ADDR_CHANGEABLE
 
 /* Must be shorter than length of ethtool_drvinfo.driver field to fit */
 #define DRIVER_NAME			"xemacps"
@@ -545,6 +546,9 @@ struct net_local {
 	unsigned ip_summed;
 	unsigned int enetnum;
 	unsigned int lastrxfrmscntr;
+#ifdef MAKE_PHY_ADDR_CHANGEABLE
+	unsigned int phy_number;
+#endif /* MAKE_PHY_ADDR_CHANGEABLE */
 #ifdef CONFIG_XILINX_PS_EMAC_HWTSTAMP
 	struct hwtstamp_config hwtstamp_config;
 	struct ptp_clock *ptp_clock;
@@ -866,6 +870,44 @@ err_out_free_mdiobus:
 err_out:
 	return rc;
 }
+
+#ifdef MAKE_PHY_ADDR_CHANGEABLE
+static int xemacps_set_phy(struct net_local *lp, int phy_number)
+{
+	struct device_node *phy_node;
+	int ret;
+
+	phy_node = of_parse_phandle(lp->pdev->dev.of_node,
+			"phy-handle", phy_number);
+	if (phy_node == NULL){
+		return -1;
+	}
+
+	if (lp->phy_dev) {
+		phy_disconnect(lp->phy_dev);
+		lp->phy_dev = NULL;
+	}
+
+	of_node_put(lp->phy_node);
+
+	lp->phy_number = phy_number;
+
+	lp->phy_node = phy_node;
+
+	ret = xemacps_mii_probe(lp->ndev);
+	if (ret == -1) {
+		printk (KERN_ERR "Failed to probe phy!");
+		return -1;
+	}
+
+	return 0;
+}
+
+static int xemacps_get_phy(struct net_local *lp)
+{
+	return lp->phy_number;
+}
+#endif /* MAKE_PHY_ADDR_CHANGEABLE */
 
 /**
  * xemacps_update_hdaddr - Update device's MAC address when configured
@@ -2782,6 +2824,41 @@ static int xemacps_ioctl(struct net_device *ndev, struct ifreq *rq, int cmd)
 
 }
 
+#ifdef MAKE_PHY_ADDR_CHANGEABLE
+static ssize_t
+xemacps_sysfs_show_phy_num(struct device *dev, struct device_attribute *attr,
+				 char *buf)
+{
+	struct net_device *ndev = to_net_dev(dev);
+	struct net_local *lp = netdev_priv(ndev);
+
+	/* External phy numbers are from 1 to *, internal phy numbers from 0 to * */
+	return sprintf (buf,"%d\n", xemacps_get_phy(lp) + 1);
+
+}
+
+static ssize_t
+xemacps_sysfs_store_phy_num(struct device *dev, struct device_attribute *attr,
+				 char *buf, size_t n)
+{
+	struct net_device *ndev = to_net_dev(dev);
+	struct net_local *lp = netdev_priv(ndev);
+	unsigned int phy_number = simple_strtoul(buf, NULL, 10);
+	if (phy_number == 0)
+		return -EINVAL;
+
+	/* External phy numbers are from 1 to *, internal phy numbers from 0 to * */
+	phy_number --;
+	if (xemacps_set_phy(lp, phy_number) != 0)
+		return -EINVAL;
+
+	return n;
+}
+
+static DEVICE_ATTR(phy_num, S_IRUGO | S_IWUSR, xemacps_sysfs_show_phy_num, xemacps_sysfs_store_phy_num);
+
+#endif /* MAKE_PHY_ADDR_CHANGEABLE */
+
 /**
  * xemacps_probe - Platform driver probe
  * @pdev: Pointer to platform device structure
@@ -2909,6 +2986,11 @@ static int xemacps_probe(struct platform_device *pdev)
 	lp->txtimeout_handler_wq = create_singlethread_workqueue(DRIVER_NAME);
 	INIT_WORK(&lp->txtimeout_reinit, xemacps_reinit_for_txtimeout);
 
+#ifdef MAKE_PHY_ADDR_CHANGEABLE
+	lp->phy_number = 0;
+	device_create_file(&ndev->dev, &dev_attr_phy_num);
+#endif /* MAKE_PHY_ADDR_CHANGEABLE */
+
 	platform_set_drvdata(pdev, ndev);
 	pm_runtime_set_active(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
@@ -2951,6 +3033,10 @@ static int xemacps_remove(struct platform_device *pdev)
 
 	if (ndev) {
 		lp = netdev_priv(ndev);
+
+#ifdef MAKE_PHY_ADDR_CHANGEABLE
+		device_remove_file(&ndev->dev, &dev_attr_phy_num);
+#endif /* MAKE_PHY_ADDR_CHANGEABLE */
 
 		mdiobus_unregister(lp->mii_bus);
 		kfree(lp->mii_bus->irq);
