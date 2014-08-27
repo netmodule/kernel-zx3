@@ -161,11 +161,12 @@ static int zx3_config_init(struct phy_device *phydev)
 
 	if (((phydev->phy_id & ~PHY_ID_KSZ9031) & phydev->drv->phy_id_mask) == 0) {
 
+		/* MMD Address 2h, Register 4h - RGMII Control Signal Pad Skew */
 		err = phy_write(phydev, 0xD, 0x0002);
 		if (err < 0)
 			return err;
 
-		err = phy_write(phydev, 0xE, 0x0008); /* Reg 0x8 */
+		err = phy_write(phydev, 0xE, 0x0004);
 		if (err < 0)
 			return err;
 
@@ -173,7 +174,58 @@ static int zx3_config_init(struct phy_device *phydev)
 		if (err < 0)
 			return err;
 
-		err = phy_write(phydev, 0xE, 0x03FF); /* 3FF = max RXC and TXC delay */
+		err = phy_write(phydev, 0xE, 0x0000);
+		if (err < 0)
+			return err;
+
+		/* MMD Address 2h, Register 5h - RGMII RX Data Pad Skew */
+		err = phy_write(phydev, 0xD, 0x0002);
+		if (err < 0)
+			return err;
+
+		err = phy_write(phydev, 0xE, 0x0005);
+		if (err < 0)
+			return err;
+
+		err = phy_write(phydev, 0xD, 0x4002);
+		if (err < 0)
+			return err;
+
+		err = phy_write(phydev, 0xE, 0x0000);
+		if (err < 0)
+			return err;
+
+		/* MMD Address 2h, Register 6h - RGMII TX Data Pad Skew */
+		err = phy_write(phydev, 0xD, 0x0002);
+		if (err < 0)
+			return err;
+
+		err = phy_write(phydev, 0xE, 0x0006);
+		if (err < 0)
+			return err;
+
+		err = phy_write(phydev, 0xD, 0x4002);
+		if (err < 0)
+			return err;
+
+		err = phy_write(phydev, 0xE, 0x0000);
+		if (err < 0)
+			return err;
+
+		/* MMD Address 2h, Register 8h - RGMII Clock Pad Skew */
+		err = phy_write(phydev, 0xD, 0x0002);
+		if (err < 0)
+			return err;
+
+		err = phy_write(phydev, 0xE, 0x0008);
+		if (err < 0)
+			return err;
+
+		err = phy_write(phydev, 0xD, 0x4002);
+		if (err < 0)
+			return err;
+
+		err = phy_write(phydev, 0xE, 0x03C0);
 		if (err < 0)
 			return err;
 	}
