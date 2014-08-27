@@ -150,82 +150,59 @@ static int ks8737_config_intr(struct phy_device *phydev)
 	return rc < 0 ? rc : 0;
 }
 
+#ifdef NETMODULE_ZX3
 /*
  * On the Enclustra ZX3 module,  each FPGA reset leads
  * to a PHY reset too. So let's do the setup again
  * @@ netmodule, da
  */
-static int zx3_config_init(struct phy_device *phydev)
+static int zx3_phy_write_skew ( struct phy_device *phydev, int reg, int value)
+{
+	int err = 0;
+
+	err = phy_write(phydev, 0xD, 0x0002);
+	if (err < 0)
+		goto out;
+
+	err = phy_write(phydev, 0xE, reg);
+	if (err < 0)
+		goto out;
+
+	err = phy_write(phydev, 0xD, 0x4002);
+	if (err < 0)
+		goto out;
+
+	err = phy_write(phydev, 0xE, value);
+	if (err < 0)
+		goto out;
+
+out:
+	return err;
+}
+
+static int ze7000_config_init(struct phy_device *phydev)
 {
 	int err;
 
 	if (((phydev->phy_id & ~PHY_ID_KSZ9031) & phydev->drv->phy_id_mask) == 0) {
 
 		/* MMD Address 2h, Register 4h - RGMII Control Signal Pad Skew */
-		err = phy_write(phydev, 0xD, 0x0002);
-		if (err < 0)
-			return err;
-
-		err = phy_write(phydev, 0xE, 0x0004);
-		if (err < 0)
-			return err;
-
-		err = phy_write(phydev, 0xD, 0x4002);
-		if (err < 0)
-			return err;
-
-		err = phy_write(phydev, 0xE, 0x0000);
+		err = zx3_phy_write_skew (phydev, 0x0004, 0x0000);
 		if (err < 0)
 			return err;
 
 		/* MMD Address 2h, Register 5h - RGMII RX Data Pad Skew */
-		err = phy_write(phydev, 0xD, 0x0002);
-		if (err < 0)
-			return err;
-
-		err = phy_write(phydev, 0xE, 0x0005);
-		if (err < 0)
-			return err;
-
-		err = phy_write(phydev, 0xD, 0x4002);
-		if (err < 0)
-			return err;
-
-		err = phy_write(phydev, 0xE, 0x0000);
+		err = zx3_phy_write_skew (phydev, 0x0005, 0x0000);
 		if (err < 0)
 			return err;
 
 		/* MMD Address 2h, Register 6h - RGMII TX Data Pad Skew */
-		err = phy_write(phydev, 0xD, 0x0002);
-		if (err < 0)
-			return err;
-
-		err = phy_write(phydev, 0xE, 0x0006);
-		if (err < 0)
-			return err;
-
-		err = phy_write(phydev, 0xD, 0x4002);
-		if (err < 0)
-			return err;
-
-		err = phy_write(phydev, 0xE, 0x0000);
+		err = zx3_phy_write_skew (phydev, 0x0006, 0x0000);
 		if (err < 0)
 			return err;
 
 		/* MMD Address 2h, Register 8h - RGMII Clock Pad Skew */
-		err = phy_write(phydev, 0xD, 0x0002);
-		if (err < 0)
-			return err;
-
-		err = phy_write(phydev, 0xE, 0x0008);
-		if (err < 0)
-			return err;
-
-		err = phy_write(phydev, 0xD, 0x4002);
-		if (err < 0)
-			return err;
-
-		err = phy_write(phydev, 0xE, 0x03C0);
+		err = zx3_phy_write_skew (phydev, 0x0008, 0x03C0);
 		if (err < 0)
 			return err;
 	}
@@ -236,6 +213,73 @@ static int zx3_config_init(struct phy_device *phydev)
 
 	return 0;
 }
+ 
+static int pm3_config_init(struct phy_device *phydev)
+{
+	int err;
+
+	if (((phydev->phy_id & ~PHY_ID_KSZ9031) & phydev->drv->phy_id_mask) == 0) {
+
+		/* MMD Address 2h, Register 4h - RGMII Control Signal Pad Skew */
+		err = zx3_phy_write_skew (phydev, 0x0004, 0x0077);
+		if (err < 0)
+			return err;
+
+		/* MMD Address 2h, Register 5h - RGMII RX Data Pad Skew */
+		err = zx3_phy_write_skew (phydev, 0x0005, 0x7777);
+		if (err < 0)
+			return err;
+
+		/* MMD Address 2h, Register 6h - RGMII TX Data Pad Skew */
+		err = zx3_phy_write_skew (phydev, 0x0006, 0x7777);
+		if (err < 0)
+			return err;
+
+		/* MMD Address 2h, Register 8h - RGMII Clock Pad Skew */
+		err = zx3_phy_write_skew (phydev, 0x0008, 0x3FF);
+		if (err < 0)
+			return err;
+	}
+
+	else {
+		printk (KERN_ERR "ZX3 unsupported PHY ID\n");
+	}
+
+	return 0;
+} 
+ 
+static int zx3_config_init(struct phy_device *phydev)
+{
+	struct device_node *root = NULL;
+	char * model;
+	int len;
+	int ret = 0;
+
+	root = of_find_node_by_path("/");
+    if (root) {
+		model = of_get_property(root, "model", &len);
+		if (model != NULL) {
+			if (strcmp (model, "ze7000") == 0) {
+				ret = ze7000_config_init (phydev);
+			}
+			else if (strcmp (model, "Enclustra Mars PM3 ZX3") == 0) {
+				ret = pm3_config_init (phydev);
+			}
+			else {
+				printk (KERN_ERR "%s() Board model is unknown !\n", __FUNCTION__);
+			}
+		}
+		else {
+			printk (KERN_ERR "Not custom ETH init, no model\n");
+		}
+	}
+	else  {
+		printk (KERN_ERR "Not custom ETH init, dtb access error\n");
+	} 
+
+	return ret;
+}
+#endif
 
 static int kszphy_config_init(struct phy_device *phydev)
 {
