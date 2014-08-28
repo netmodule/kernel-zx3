@@ -25,6 +25,9 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 
+//NM: SMC setup for NAND timings and width only executed by FSBL
+#define DONT_TOUCH_SMC_NAND_TIMING_WIDTH
+
 /* Register definitions */
 #define PL353_SMC_MEMC_STATUS_OFFS	0	/* Controller status reg, RO */
 #define PL353_SMC_CFG_CLR_OFFS		0xC	/* Clear config reg, WO */
@@ -117,6 +120,7 @@ int pl353_smc_set_buswidth(unsigned int bw)
 }
 EXPORT_SYMBOL_GPL(pl353_smc_set_buswidth);
 
+#ifndef DONT_TOUCH_SMC_NAND_TIMING_WIDTH
 /**
  * pl353_smc_set_cycles - Set memory timing parameters
  * @t0:	t_rc		read cycle time
@@ -152,6 +156,7 @@ static void pl353_smc_set_cycles(u32 t0, u32 t1, u32 t2, u32 t3, u32
 	writel(PL353_SMC_DC_UPT_NAND_REGS, pl353_smc_base +
 	       PL353_SMC_DIRECT_CMD_OFFS);
 }
+#endif
 
 /**
  * pl353_smc_ecc_is_busy_noirq - Read ecc busy flag
@@ -328,9 +333,10 @@ static SIMPLE_DEV_PM_OPS(pl353_smc_dev_pm_ops, pl353_smc_suspend,
 static void pl353_smc_init_nand_interface(struct platform_device *pdev,
 				       struct device_node *nand_node)
 {
+	unsigned long timeout = jiffies + PL353_NAND_ECC_BUSY_TIMEOUT;
+#ifndef DONT_TOUCH_SMC_NAND_TIMING_WIDTH
 	u32 t_rc, t_wc, t_rea, t_wp, t_clr, t_ar, t_rr;
 	int err;
-	unsigned long timeout = jiffies + PL353_NAND_ECC_BUSY_TIMEOUT;
 
 	/* nand-cycle-<X> property is refer to the NAND flash timing
 	 * mapping between dts and the NAND flash AC timing
@@ -401,6 +407,9 @@ default_nand_timing:
 	 * is for 2Gb Numonyx flash.
 	 */
 	pl353_smc_set_cycles(t_rc, t_wc, t_rea, t_wp, t_clr, t_ar, t_rr);
+#else
+	dev_warn(&pdev->dev, "xlnx,nand-width and timings not changed by linux!");
+#endif
 	writel(PL353_SMC_CFG_CLR_INT_CLR_1,
 		pl353_smc_base + PL353_SMC_CFG_CLR_OFFS);
 	writel(PL353_SMC_DC_UPT_NAND_REGS, pl353_smc_base +
