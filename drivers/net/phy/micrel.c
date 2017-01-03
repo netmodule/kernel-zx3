@@ -187,17 +187,17 @@ static int ze7000_config_init(struct phy_device *phydev)
 	if (((phydev->phy_id & ~PHY_ID_KSZ9031) & phydev->drv->phy_id_mask) == 0) {
 
 		/* MMD Address 2h, Register 4h - RGMII Control Signal Pad Skew */
-		err = zx3_phy_write_skew (phydev, 0x0004, 0x0000);
+		err = zx3_phy_write_skew (phydev, 0x0004, 0x0077);
 		if (err < 0)
 			return err;
 
 		/* MMD Address 2h, Register 5h - RGMII RX Data Pad Skew */
-		err = zx3_phy_write_skew (phydev, 0x0005, 0x0000);
+		err = zx3_phy_write_skew (phydev, 0x0005, 0x7777);
 		if (err < 0)
 			return err;
 
 		/* MMD Address 2h, Register 6h - RGMII TX Data Pad Skew */
-		err = zx3_phy_write_skew (phydev, 0x0006, 0x0000);
+		err = zx3_phy_write_skew (phydev, 0x0006, 0x7777);
 		if (err < 0)
 			return err;
 
